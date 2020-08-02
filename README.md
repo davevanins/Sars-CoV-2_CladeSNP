@@ -14,6 +14,7 @@ At the beginning of each script is a "user defined variables" section which need
 To replicate the results from our manuscript, we recommend downloading the NCBI SARS-CoV-2 reference genome (accession NC_045512) to align all GISAID sequences against, but you can use any fasta formatted alignment. 
 
 Scripts should be run in the following order:
+
 `01_genome_rename.py`
 * Genomes uploaded to GISAID often have different standards for how to handle ambiguous nucleotides, as DNA vs RNA sequences, etc... so this script reformats all sequences in the input file and 
 
