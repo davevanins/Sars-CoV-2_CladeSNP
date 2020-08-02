@@ -24,7 +24,8 @@ Scripts should be run in the following order:
 `03_alignment_parse_cladeSNPs.py`
 * This script generates the final output for manually identifying putative recombinant genomes. After searching each genome for the clade-defining SNPs and comparing them to the SNP profiles of each clade, it outputs all sequences that have more than 1 difference in its clade-defining SNP profile relative to the nearest clade.
 
-#Interpreting the output
+
+# Interpreting the output
 The output lists each query genome on a separate line, along with the number of clade-defining SNP differences that sequence is to the nearest clade. Following that information is a visual depiction of similarities and differences with the SNP profiles of each clade. When a clade shares a nucleotide at a position, a '-' is entered, but when they differ the nucleotide from the clade SNP profile is written. Recombinants are identified by scanning for sequences that appear to be reassortments of two specific clades.
 
 For examples of what validated recombinant sequences look like in the output file, we recommend include the following sequences in your analysis for reference:
