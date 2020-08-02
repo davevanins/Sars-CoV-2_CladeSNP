@@ -41,5 +41,5 @@ For examples of what validated recombinant sequences look like in the output fil
 
 # Notes
 * If there are any sequences which you wish to exclude from your analysis, make a file called "genomes_to_exclude.txt" and put it in the working directory with the GISAID 'ESP_ISL_####' accession numbers, each listed on a new line separately.
-* Likewise, if there are genomes you want to be sure are included, make a file called "genomes_to_include.txt" and put it in the working directory. 
+* Likewise, if there are genomes you want to be sure are included, make a file called "genomes_to_include.txt" and put it in the working directory. This will not over-rule any quality filtering steps, but when the genome sequences are filtered to remove redundant sequences prior to alignment, it will make sure those genomes are included in the alignment and in all subsequent analysis.
 * cladeSNP was written to be used on a computer cluster with slurm workload manager, but it can be run locally with minimal edits (assuming MAFFT and blastn are installed on your machine).
