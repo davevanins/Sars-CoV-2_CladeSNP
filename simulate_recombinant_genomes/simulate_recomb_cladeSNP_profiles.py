@@ -7,7 +7,7 @@ random.seed(2020)
 project_dir = "./"
 clade_diff_snp_loc_filename = project_dir+"clade_associated_SNPs.nucl.txt"
 
-number_of_break_points = 100000 #max 100, any number greater than 100 will assign cdSNP identity randomly as if there are an infinite number of breakpoints
+number_of_break_points = 5 #max 100, any number greater than 100 will assign cdSNP identity randomly as if there are an infinite number of breakpoints
 min_dist_from_nearest_clade = 2
 
 hist_start = 0
@@ -66,9 +66,9 @@ def count_clade_dist(clade_list,cladeSNP_locations,clade_diff_snps,query_snp_dic
 		dist = 0
 		for j in range(0,len(cladeSNP_locations)):
 			loc = cladeSNP_locations[j]
-			q_nt = query_snp_dict[loc]#[accession]
-			s_nt = clade_diff_snps[clade][loc]#[clade]
-			if q_nt != s_nt:# and q_nt != "-" and q_nt != "N":
+			q_nt = query_snp_dict[loc]
+			s_nt = clade_diff_snps[clade][loc]
+			if q_nt != s_nt:
 				dist += 1
 		tup = (dist,clade)
 		dist_list.append(tup)
@@ -111,8 +111,6 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 				elif base2 == q_base:
 					loc2.append(loc)
 					all_supporting_locs.append(loc)
-				# elif base1 != q_base and base2 != q_base:
-				# 	conflict = True
 
 		if conflict == False and len(loc1)>0 and len(loc2)>0:#(len(loc1)+len(loc1)) > 0:
 			
@@ -142,6 +140,11 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 
 
 ############################################   MAIN   #############################################
+if number_of_break_points > 100:
+	breakpoint_naming_value = "infinite"
+else:
+	breakpoint_naming_value = str(number_of_break_points)
+
 clade_diff_snp_loc_file = open(clade_diff_snp_loc_filename,"r")
 clade_diff_snps = {}
 clade_list = []
@@ -155,7 +158,6 @@ for line in clade_diff_snp_loc_file:
 	else:
 		loc = int(line[0])+118
 		if loc not in exclude_locs_for_dist:
-			# clade_diff_snps[loc] = {}
 			diff_snp_locs.append(loc)
 			for j in range(1,len(line)):
 				clade = clade_list[j-1]
@@ -258,12 +260,12 @@ for bin in real_bin_count:
 median_real_count = np.median(real_bin_count_list)
 rel_real_bin_count = {}
 for bin in real_bin_count:
-	rel_real_bin_count[bin] = float(real_bin_count[bin])#/float(median_real_count)
+	rel_real_bin_count[bin] = float(real_bin_count[bin])
 
 
 
 ### Simulate recombinant genomes
-simulated_genome_summary_outfile = open("simulated_genome_summary.breakpoints-"+str(number_of_break_points)+"_"+str(number_of_replicates)+".txt","w")
+simulated_genome_summary_outfile = open("simulated_genome_summary.breakpoints-"+str(breakpoint_naming_value)+"_"+str(number_of_replicates)+".txt","w")
 simulated_genome_summary_outfile.write("clade1\tclade2\tcdSNP_profile\tmin_dist_val\tmin_observed_breakpoints\n")
 
 bin_count = {}
@@ -390,7 +392,6 @@ for rep in range(0,number_of_replicates):
 									bin_count[rep][bin] += 1
 								elif start > point[0] and stop < point[1]:
 									bin_count[rep][bin] += 1
-								# range_length = point[1] - point[0]
 							start = stop
 
 						simulated_genome_summary_outfile.write(clade1_obs+"\t"+clade2_obs+"\t"+SNP_profile+"\t"+str(min_clade_dist)+"\t"+str(min_observed_breakpoints)+"\n")
@@ -401,14 +402,14 @@ for rep in range(0,number_of_replicates):
 		sim_median_count = np.median(bin_count_list)
 		for bin in real_bin_count:
 			try:
-				rel_bin_count[rep][bin] = rel_real_bin_count[bin]/(float(bin_count[rep][bin]))#/float(sim_median_count))
+				rel_bin_count[rep][bin] = rel_real_bin_count[bin]/(float(bin_count[rep][bin]))
 			except:
 				rel_bin_count[rep][bin] = 0.0
 		if passing_recombinant_count < number_of_genomes_to_simulate:
 			print("Ran out of clade pairs! Cannot complete analysis")
 simulated_genome_summary_outfile.close()
 
-range_outfile = open("ranges.break_points-"+str(number_of_break_points)+"_"+str(number_of_replicates)+".txt","w")
+range_outfile = open("ranges.break_points-"+str(breakpoint_naming_value)+"_"+str(number_of_replicates)+".txt","w")
 start = 0
 for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
 	bin = str(start)+"\t"+str(stop)
