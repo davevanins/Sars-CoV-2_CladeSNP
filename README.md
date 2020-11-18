@@ -2,7 +2,7 @@
 # SARS-CoV-2 cladeSNP
 
 # Purpose
-This pipeline is designed to take the raw SARS-CoV-2 genomes from GISAID, align them to a reference alignment, then identify putative recombinant genomes for manual inspection
+This pipeline is designed to take the raw SARS-CoV-2 genomes from GISAID, align them to a reference alignment, then identifies putative recombinant genomes by highlighting genomes with unusual combinations of clade-defining SNPs and automatically determining if recombination between any two parent clades could explain the query genome.
 
 # Dependencies
 
@@ -22,18 +22,23 @@ Scripts should be run in the following order:
 * This script takes the blast output file and uses that information to consistently cut each genome and generate a set of unique sequences to align to the reference alignment. It finishes by submitting a MAFFT alignment job.
 
 `03_alignment_parse_cladeSNPs.py`
-* This script generates the final output for manually identifying putative recombinant genomes. After searching each genome for the clade-defining SNPs and comparing them to the SNP profiles of each clade, it outputs all sequences that have more than 1 difference in its clade-defining SNP profile relative to the nearest clade.
+* This script generates the final output for manually identifying putative recombinant genomes. After searching each genome for the clade-defining SNPs and comparing them to the SNP profiles of each clade.
 
 
 # Interpreting the output
-The output lists each query genome on a separate line, along with the number of clade-defining SNP differences that sequence is to the nearest clade. Following that information is a visual depiction of similarities and differences with the SNP profiles of each clade. When a clade shares a nucleotide at a position, a '-' is entered, but when they differ the nucleotide from the clade SNP profile is written. Recombinants are identified by scanning for sequences that appear to be reassortments of two specific clades.
+
+There are four main output files that summarize any information supporting recombination
+
+* putative_recombinant_info.txt - is the output for information on all possible parent clade pairs for each putative recombinant, including the number of predicted recombination breakpoints and SNPs supporting recombination 
+* recombinants.min_diffSNP_distance.txt - another output for genomes that pass recombinant screen, including the clade defining SNP profile of the putative recombinant and how that profile differs from each of the 14 clades' cdSNP profiles
+* all_genomes.min_cdSNP_distance.txt - reports the minimum distance of all input genomes to the nearest clade based on clade-defining SNPs. In current implementation, N's are not counted towards distance
+* zero_cdSNP_distance.clade_assignment.txt - outputs only those genomes with clade-defining SNP profiles that perfectly match one of the 14 clades' profiles
 
 For examples of what validated recombinant sequences look like in the output file, we recommend include the following sequences in your analysis for reference:
 * EPI_ISL_468407
-* EPI_ISL_452334
 * EPI_ISL_475584
-* EPI_ISL_454983
-* EPI_ISL_464547
+* EPI_ISL_479572
+* EPI_ISL_444583
 
 # Generating clade-defining SNPs for clades you chose
 `alignment_parse_groupSNPs.py` 
@@ -42,4 +47,4 @@ For examples of what validated recombinant sequences look like in the output fil
 # Notes
 * If there are any sequences which you wish to exclude from your analysis, make a file called "genomes_to_exclude.txt" and put it in the working directory with the GISAID 'ESP_ISL_####' accession numbers, each listed on a new line separately.
 * Likewise, if there are genomes you want to be sure are included, make a file called "genomes_to_include.txt" and put it in the working directory. This will not over-rule any quality filtering steps, but when the genome sequences are filtered to remove redundant sequences prior to alignment, it will make sure those genomes are included in the alignment and in all subsequent analysis.
-* cladeSNP was written to be used on a computer cluster with slurm workload manager, but it can be run locally with minimal edits (assuming MAFFT and blastn are installed on your machine).
+* cladeSNP was written to be used on a computer cluster with slurm workload manager, but it can be run locally with minimal changes (assuming MAFFT and blastn are installed on your machine).
