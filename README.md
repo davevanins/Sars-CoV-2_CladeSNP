@@ -16,3 +16,6 @@ This repository contains all of the code to replicate the analsysis of VanInsber
 
 `calculate_ceiling`
 * This section is used to calculate the theoretical maximum number of circulating recombinant viruses in a geographic region.
+
+`summary of analysis`
+* This section contains files that summarize all of the GISAID accession numbers of genomes included in the analyses for our manuscript, and information about the genomes we predicted to be recombinant. 
