@@ -11,7 +11,7 @@ This pipeline is designed to take the raw SARS-CoV-2 genomes from GISAID, align 
 
 # Usage
 At the beginning of each script is a "user defined variables" section which needs to be updated to reflect the directory of the project, name of the input file downloaded from GISAID, and name of the reference alignment to which the genomes should be aligned.
-To replicate the results from our manuscript, we recommend downloading the NCBI SARS-CoV-2 reference genome (accession NC_045512) to align all GISAID sequences against, but you can use any fasta formatted alignment. 
+To replicate the results from our manuscript, we recommend downloading the NCBI SARS-CoV-2 reference genome (accession NC_045512) to align all GISAID sequences against, but you can use any fasta formatted alignment. We included the trimmed version of this genome in this section to replicate our analysis.
 
 Scripts should be run in the following order:
 
