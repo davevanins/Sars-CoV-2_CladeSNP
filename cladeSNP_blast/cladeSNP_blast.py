@@ -1,4 +1,5 @@
 import os
+import sys
 ###################################   USER DEFINED VARIABLES   ###################################
 args = sys.argv
 input_name = args[1]
@@ -19,11 +20,15 @@ if not os.path.exists(blast_dir):
 clade_diff_snp_loc_filename = project_dir+"clade_associated_SNPs.nucl.txt"
 exclude_locs_for_dist = []#if you wish to include positions 28881-3 as one site, change this list to: [28764,28765]
 
+
+min_input_length = 29500
+max_input_length = 31000
+
 min_output_length = 29610
 max_output_length = 29660
 
 max_N_prop = 0.01
-accessions_to_include = [] #add sequence names to this list to override N and length cutoffs. Optional, only for development or hypothesis testing
+accessions_to_include = [] #add sequence names to this list to override N and length cutoffs
 
 ############################################ FUNCTIONS ############################################
 
@@ -76,7 +81,9 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 				elif base2 == q_base:
 					loc2.append(loc)
 					all_loc.append(loc)
-		if conflict == False and len(loc1)>0 and len(loc2)>0:
+
+		if conflict == False and len(loc1)>0 and len(loc2)>0:#(len(loc1)+len(loc1)) > 0:
+			
 			#count number of breaks to explain recombination	
 			break_count = 0
 			if min(loc1) < min(loc2):
@@ -95,9 +102,8 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 					if current_parent != clade2:
 						current_parent = clade2
 						break_count += 1
-			tup = (break_count,len(all_loc), pair, all_loc) #len(all_loc) is included for sorting purposes
+			tup = (break_count,len(all_loc), pair, all_loc)
 			potential_parents.append(tup)
-	potential_parents = sorted(potential_parents) #sorted so predicted parents with (first) lowest number of predicted breakpoints required to explain sequence with (second) fewest total distinguishing cdSNPs are ordered first
 	return potential_parents
 
 ############################################   MAIN   #############################################
@@ -114,6 +120,7 @@ for line in genomes_infile:
 			accession = line.split("|")[1]
 			if accession in used_list:
 				skip = True
+				print("Error: duplicate sequence header found, excluding from analysis: "+accession)
 			else:
 				skip = False
 				used_list.append(accession)
@@ -124,6 +131,7 @@ for line in genomes_infile:
 			except:
 				seq_dict[accession] = line
 genomes_infile.close()
+print(str(len(seq_dict))+" genomes included in input file")
 
 ##Remove any streches of N's from head or tail of genome (many genomes on GISAID have dozens of N's before and after the assembled content to make a consistent length)
 temp_seq_dict = {}
@@ -134,14 +142,11 @@ for accession in seq_dict:
 	seq = seq.strip()
 	seq = seq.replace(" ","N")
 	seq = seq.replace("-","")
-	len_before = len(seq)
-	len_after = len(seq.replace("N",""))
-	Ncount = len_before-len_after
-	N_prop = float(Ncount)/float(len_before)
 	genomes_outfile.write(">"+accession+"\n"+seq+"\n")
 	temp_seq_dict[accession] = seq
 genomes_outfile.close()
 del seq_dict
+
 
 ##make blastn command to find location to trim the sequence
 command = "blastn -query "+rename_outfile_name+" -subject "+blast_template_dir+flanking_seq_filename+' -evalue 1E-9 -outfmt "6 qseqid sseqid pident evalue qlen slen length qstart qend sstart send" -out '+blast_dir+output_prefix+".trim.blastn.txt"
@@ -189,17 +194,17 @@ for accession in temp_seq_dict:
 		len_after = len(seq_out.replace("N",""))
 		Ncount = len_before-len_after
 		N_prop = float(Ncount)/float(len_before)
-
+		# print(len(seq_out))
 		if len(seq_out) >= min_output_length and len(seq_out) <= max_output_length:
 			quality_outfile.write(accession+"\t"+str(len_before)+"\t"+str(Ncount)+"\n")
-			trim_seq_dict[seq_out] = accession
+			trim_seq_dict[accession] = seq_out
 			accession_list.append(accession)
 			genomes_outfile.write(">"+accession+"\n"+seq_out+"\n")
 	except:
 		pass
 quality_outfile.close()
 genomes_outfile.close()
-print("Including "+str(len(accession_list))+" non-redundant genomes")
+print("Including "+str(len(accession_list))+" genomes that pass length and quality thresholds")
 
 ##store 14 clade cdSNP profiles
 clade_diff_snp_loc_file = open(clade_diff_snp_loc_filename,"r")
@@ -214,7 +219,6 @@ for line in clade_diff_snp_loc_file:
 		clade_list = line
 	else:
 		loc = int(line[0])
-		# clade_diff_snps[loc] = {}
 		diff_snp_locs.append(loc)
 		for j in range(1,len(line)):
 			clade = clade_list[j-1]
@@ -229,9 +233,8 @@ print(diff_snp_locs)
 
 ##perform blastn to find the locations of the cdSNPs in each genome
 for loc in diff_snp_locs:
-	command = "blastn -query "+blast_template_dir+"SNP_"+str(loc)+".fasta -subject "+trim_outfile_name+' -evalue 1E-5 -outfmt "6 qseqid sseqid pident evalue qlen slen length qstart qend sstart send sseq" -out '+blast_dir+output_prefix+".SNP_"+str(loc)+".blastn.txt"
+	command = "blastn -query "+trim_outfile_name+" -subject "+blast_template_dir+"SNP_"+str(loc)+'.fasta -evalue 1E-5 -outfmt "6 qseqid sseqid pident evalue qlen slen length qstart qend sstart send qseq" -out '+blast_dir+output_prefix+".SNP_"+str(loc)+".blastn.txt"
 	os.system(command)
-
 
 ##find cdSNPs for all query genomes
 query_snp_dict = {}
@@ -242,28 +245,31 @@ for loc in diff_snp_locs:
 	#"0-qseqid 1-sseqid 2-pident 3-evalue 4-qlen 5-slen 6-length 7-qstart 8-qend 9-sstart 10-send 11-sseq"
 	for line in blast_infile:
 		line = line.strip().split("\t")
-		SNP_ID = line[0]
-		loc = int(line[0].split("_")[1])
-		accession = line[1]
+		SNP_ID = line[1]
+		loc = int(line[1].split("_")[1])
+		accession = line[0]
 		pid = float(line[2])
 		evalue = float(line[3])
-		qlen =int(line[4])
+		qlen =int(line[5])
 		align_len = int(line[6])
-		qstart = int(line[7])
-		qend = int(line[8])
+		qstart = int(line[9])
+		qend = int(line[10])
 		sseq = line[11]
-
 		cdSNP_loc = (qlen/2)-qstart
 		if cdSNP_loc >0:
-			cdSNP = sseq[cdSNP_loc]
-
+			if cdSNP_loc <= qend:
+				cdSNP = sseq[cdSNP_loc]
+			else:
+				cdSNP = "N"
 			query_list.append(accession)
 			try:
 				try:
 					prev_evalue = eval_dict[accession][loc]
-					if evalue < prev_evalue:
+					prev_cdSNP = query_snp_dict[accession][loc]
+					if evalue < prev_evalue or prev_cdSNP == "N":
 						query_snp_dict[accession][loc] = cdSNP
 						eval_dict[accession][loc] = evalue
+						print(accession+"\t"+str(loc)+"\t"+str(evalue)+"\t"+str(prev_evalue)+"\t"+cdSNP+"\t"+prev_cdSNP)
 				except:
 					query_snp_dict[accession][loc] = cdSNP
 					eval_dict[accession][loc] = evalue
@@ -287,7 +293,7 @@ for clade in clade_list:
 	minDist_outfile.write(clade+"\t")
 	for x in range(0,len(diff_snp_locs)):
 		loc = diff_snp_locs[x]
-		s_nt = clade_diff_snps[clade][loc]#[clade]
+		s_nt = clade_diff_snps[clade][loc]
 		minDist_outfile.write(s_nt)
 	minDist_outfile.write("\n")
 minDist_outfile.write("\n")
@@ -296,6 +302,8 @@ for k in range(0,len(clade_list)):
 		clade = clade_list[k]
 		minDist_outfile.write("\t"+clade)
 minDist_outfile.write("\n")
+
+
 
 dist_dict = {}
 flagged_accessions = []
@@ -339,6 +347,7 @@ for i in range(0,len(query_list)):
 	minDist_all_outfile.write(accession+"\t"+str(min_dist_val)+"\t"+str(min_dist_clade)+"\t"+SNP_profile+"\n")
 
 	if (min_dist_val >= 2 and N_found == False) or accession in accessions_to_include:
+		flagged_accessions.append(accession)
 
 		parent_clades = sorted(check_parent_clades(clade_diff_snps,diff_snp_locs,query_snp_dict[accession]))
 		min_break_count = 99
@@ -354,11 +363,7 @@ for i in range(0,len(query_list)):
 				parent_clade_outfile.write(accession+"\t"+clade1+"\t"+clade2+"\t"+str(clade_dist1)+"\t"+str(clade_dist2)+"\t"+str(num_supporting_SNPs)+"\t"+str(break_count)+"\n")
 				if break_count <= min_break_count:
 					min_break_count = break_count
-		elif parent_clades == []:
-			min_break_count = 'nan'
-		
-		if min_break_count != 'nan':
-			flagged_accessions.append(accession)
+			
 			minDist_outfile_string = ''
 			minDist_outfile_string += str(min_dist_val)+"\t"+str(min_dist_clade)+"\t"+str(min_break_count)+"\t"
 			for x in range(0,len(diff_snp_locs)):
@@ -378,26 +383,18 @@ for i in range(0,len(query_list)):
 						gaped_string += '-'
 				minDist_outfile_string += '\t'+gaped_string
 			minDist_outfile_string += '\n'
-			try:
-				name_list = name_dict[accession]
-				for b in range(0,len(name_list)):
-					accession_name = name_list[b]
-					minDist_outfile.write(accession_name+"\t"+minDist_outfile_string)
-			except:
-				minDist_outfile.write(accession+"\t"+minDist_outfile_string)
+			minDist_outfile.write(accession+"\t"+minDist_outfile_string)
 
+		elif parent_clades == []:
+			min_break_count = 'nan'
+		
 	elif min_dist_val == 0 and N_found == False:
-		try:
-			name_list = name_dict[accession]
-			for b in range(0,len(name_list)):
-				accession_name = name_list[b]
-				zeroDist_outfile.write(accession_name+"\t"+str(min_dist_clade)+"\n")
-		except:
-			zeroDist_outfile.write(accession+"\t"+str(min_dist_clade)+"\n")
+		zeroDist_outfile.write(accession+"\t"+str(min_dist_clade)+"\n")
 minDist_outfile.close()
 minDist_all_outfile.close()
 zeroDist_outfile.close()
 
+ref_strains = []
 outfile = open(project_dir+output_prefix+".seqs_to_characterize.fasta","w")
 for accession in flagged_accessions:
 	outfile.write(">"+accession+"\n"+trim_seq_dict[accession]+"\n")
