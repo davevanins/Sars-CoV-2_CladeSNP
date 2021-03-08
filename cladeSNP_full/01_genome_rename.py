@@ -54,6 +54,23 @@ try:
 except:
 	pass
 
+accession_name_dict = {}
+try:
+	firstline = True
+	metadatatsv = open(project_dir+"metadata.tsv","r")
+	for line in metadatatsv:
+		if firstline == True:
+			firstline = False
+		else:
+			line = line.strip().split("\t")
+			seqname = line[0]
+			accession = line[2]
+			accession_name_dict[seqname] = accession
+	metadatatsv.close()
+except:
+	pass
+
+
 reference_alignment = open(reference_alignment_filename,"r")
 for line in reference_alignment:
 	line = line.strip()
@@ -73,15 +90,16 @@ for line in genomes_infile:
 	line = line.strip()
 	if len(line) >0:
 		if line[0] == ">":
-			accession = line.split("|")[1]
+			try:
+				accession = line.split("|")[1]
+			except:
+				accession = accession_name_dict[line[1:len(line)]]
 			if accession in accessions_to_exclude or accession in accession_list:
 				skip = True
 			else:
 				skip = False
 				accession_list.append(accession)
 				genomes_included.write(accession+"\n")
-				if accession == "EPI_ISL_452334":
-					print("storing EPI_ISL_452334 NOW. Line 76")
 		elif skip == False:
 			line = nucleotide_character_edit(line,ambiguous_nucleotides)
 			try:
@@ -91,7 +109,7 @@ for line in genomes_infile:
 genomes_infile.close()
 genomes_included.close()
 print("Found "+str(len(accession_list))+" non-redundant genomes")
-
+del accession_name_dict
 
 # quality_outfile = open("Ncount.txt","w")
 removed_counter = 0
@@ -113,8 +131,6 @@ for accession in seq_dict:
 		genomes_outfile.write(">"+accession+"\n"+seq+"\n")
 		if accession in accessions_to_include:
 			accessions_to_include_found[accession] = True
-			if accession == "EPI_ISL_452334":
-				print("hit EPI_ISL_452334. Error. Line 145")
 	else:
 		removed_counter += 1
 		removed_genomes.append(accession)
@@ -133,4 +149,3 @@ shell_out.write(slurm_prefix+command+"\n")
 shell_out.write("python 02_trim_genomes.py\n")
 shell_out.close()
 os.system("sbatch "+project_dir+"blastn.sh")
-
