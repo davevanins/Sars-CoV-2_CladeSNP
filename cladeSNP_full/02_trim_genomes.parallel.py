@@ -143,5 +143,5 @@ for i in range(0,file_counter+1):
 
 
 shell_out = open(project_dir+"alignment_parse.sh","w")
-shell_out.write(slurm_prefix+"python 03_alignment_parse_cladeSNPs.py "+str(file_counter+1)+"\n")
+shell_out.write(slurm_prefix+"python 03_alignment_parse_cladeSNPs.parallel.py "+str(file_counter+1)+"\n")
 shell_out.close()
