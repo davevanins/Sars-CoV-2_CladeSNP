@@ -7,20 +7,22 @@ random.seed(2020)
 project_dir = "./"
 clade_diff_snp_loc_filename = project_dir+"clade_associated_SNPs.nucl.txt"
 
-number_of_break_points = 5 #max 100, any number greater than 100 will assign cdSNP identity randomly as if there are an infinite number of breakpoints
 min_dist_from_nearest_clade = 2
 
 hist_start = 0
-hist_stop = 30000
-bin_size = 10 #bases
+hist_stop = 30000 #maximum length of the genome
+bin_size = 10 #number of bases per bin
 
-number_of_replicates = 30
-number_of_genomes_to_simulate = 257
+number_of_replicates = 30 #number of times to independently simulate the set of recombinant genomes to calculate the 95% confidence interval
 
-exclude_locs_for_dist = []
+exclude_locs_for_dist = [] #included in case you want to exclude any cdSNP locations from analysis
 
-clade_proportion = {'19A-1':0.0344,'19B-2':0.00957,'19A-2':0.00323,'20A-3':0.225,'19A-4':0.0403,'20B-2':0.363,'20B-1':0.0421,'19B-3':0.0185,'20A-1':0.0336,'19B-4':0.00970,'20C-1':0.184,'20A-2':0.0237,'19A-3':0.00883,'19B-1':0.00469}
+clade_proportion = {'19A-1':0.23,'19A-2':0.0047,'19A-3':0.0176,'19A-4':0.0117,'19B-1':0.0211,'19B-2':0.0364,'19B-3':0.0094,'19B-4':0.0141,'20A-1':0.0692,'20A-2':0.0493,'20A-3':0.0951,'20B-1':0.0117,'20B-2':0.1549,'20C-1':0.2746} #the relative abundance of each clade
 
+number_of_genomes_to_simulate = 0
+breakpoint_bins = {1:34,2:73,3:95,4:87,5:24,6:12,7:2,8:1,9:0,10:1} #dictionary storing the number of recombinants to generate with different numbers of recombination breakpoints
+for bin in breakpoint_bins:
+	number_of_genomes_to_simulate += breakpoint_bins[bin]
 ############################################ FUNCTIONS ############################################
 def mean_confidence_interval(data, confidence=0.95):
 	a = 1.0 * np.array(data)
@@ -140,10 +142,25 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 
 
 ############################################   MAIN   #############################################
-if number_of_break_points > 100:
-	breakpoint_naming_value = "infinite"
-else:
-	breakpoint_naming_value = str(number_of_break_points)
+cdSNP_difference_infile = open("clade_SNP_difference.txt")
+firstline = True
+header_list = []
+dist_dict = {}
+for line in cdSNP_difference_infile:
+	line = line.strip().split("\t")
+	if firstline == True:
+		header_list = line
+		firstline = False
+	else:
+		node = line[0]
+		for i in range(1,len(line)):
+			header = header_list[i-1]
+			try:
+				dist_dict[node][header] = float(line[i])
+			except:
+				dist_dict[node] = {}
+				dist_dict[node][header] = float(line[i])
+cdSNP_difference_infile
 
 clade_diff_snp_loc_file = open(clade_diff_snp_loc_filename,"r")
 clade_diff_snps = {}
@@ -180,7 +197,7 @@ for line in infile:
 	else:
 		line = line.strip().split("\t")
 		accession = line[0]
-		cdSNP_profile = line[4]
+		cdSNP_profile = line[2]
 		for i in range(0,len(cdSNP_profile)):
 			loc = diff_snp_locs[i]
 			cdSNP = cdSNP_profile[i]
@@ -191,6 +208,7 @@ for line in infile:
 				real_cdSNP_profile_dict[accession][loc] = cdSNP
 infile.close()
 
+### Process real recombinant genomes
 real_bin_count = {}
 for accession in real_cdSNP_profile_dict:
 	clade_dist_list = sorted(count_clade_dist(clade_list,diff_snp_locs,clade_diff_snps,real_cdSNP_profile_dict[accession]))
@@ -263,153 +281,170 @@ for bin in real_bin_count:
 	rel_real_bin_count[bin] = float(real_bin_count[bin])
 
 
-
 ### Simulate recombinant genomes
-simulated_genome_summary_outfile = open("simulated_genome_summary.breakpoints-"+str(breakpoint_naming_value)+"_"+str(number_of_replicates)+".txt","w")
+simulated_genome_summary_outfile = open("simulated_genome_summary.replicates-"+str(number_of_replicates)+".multi-break.txt","w")
 simulated_genome_summary_outfile.write("clade1\tclade2\tcdSNP_profile\tmin_dist_val\tmin_observed_breakpoints\n")
 
 bin_count = {}
 rel_bin_count = {}
 passing_recombinant_count = 0
-rand_clade_pairs = get_random_clade_pairs(clade_proportion,number_of_genomes_to_simulate*100)
-
+print("Simulating "+str(number_of_genomes_to_simulate)+" genomes, replicate:")
 for rep in range(0,number_of_replicates):
+	print(rep)
 	bin_count[rep] = {}
 	rel_bin_count[rep] = {}
-	passing_recombinant_count = 0
-	while passing_recombinant_count < number_of_genomes_to_simulate:
-		for num in range(0,len(rand_clade_pairs)):
-			if passing_recombinant_count < number_of_genomes_to_simulate:
-				clade1 = rand_clade_pairs[num][1]
-				clade2 = rand_clade_pairs[num][2]
+	used = {}
+	simulated_bins = {1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0} #reset counter for each replicate
+	for number_of_break_points in breakpoint_bins:
+		if breakpoint_bins[number_of_break_points] != 0:
+			if number_of_break_points > 9:
+				rand_clade_pairs = get_random_clade_pairs(clade_proportion,number_of_genomes_to_simulate*10000)
+			else:
+				rand_clade_pairs = get_random_clade_pairs(clade_proportion,number_of_genomes_to_simulate*100*number_of_break_points)
+			passing_recombinant_count = 0
+			while simulated_bins[number_of_break_points] < breakpoint_bins[number_of_break_points]:
+				for num in range(0,len(rand_clade_pairs)):
+					if simulated_bins[number_of_break_points] < breakpoint_bins[number_of_break_points]:
+						clade1 = rand_clade_pairs[num][1]
+						clade2 = rand_clade_pairs[num][2]
 
-				pair = clade1+","+clade2
-				pair_r = clade2+","+clade1
+						clade_cdSNP_distance = dist_dict[clade1][clade2]
+						if clade_cdSNP_distance >= number_of_break_points+1:
 
-				if number_of_break_points <= 100:
-					break_points = get_random_locations(number_of_break_points)
-				elif number_of_break_points > 100:
-					break_points = []
+							pair = clade1+","+clade2
+							pair_r = clade2+","+clade1
 
-				query_snp_dict = {}
-				c1_locs = []
-				c2_locs = []
-				if random.randint(0,1) == 1: #randomize which clade the first recombination block orginates from
-					current_clade = clade1
-				else:
-					current_clade = clade2
+							if number_of_break_points <= 100:
+								break_points = get_random_locations(number_of_break_points)
+							elif number_of_break_points > 100:
+								break_points = []
 
-				if number_of_break_points <= 100:
-					for k in range(0,len(break_points)-1): #go through recombination blocks and assign SNPs to each parental clade
-						start = break_points[k]
-						stop = break_points[k+1]
-						for p in range(0,len(diff_snp_locs)):
-							loc = diff_snp_locs[p]
-							if start <= loc < stop:
-								if current_clade == clade1:
-									c1_locs.append(loc)
-									query_snp_dict[loc] = clade_diff_snps[clade1][loc]
-								else:
-									c2_locs.append(loc)
-									query_snp_dict[loc] = clade_diff_snps[clade2][loc]
-
-						if current_clade == clade1:
-							current_clade = clade2
-						elif current_clade == clade2:
-							current_clade = clade1
-				elif number_of_break_points > 100:
-					for p in range(0,len(diff_snp_locs)):
-						if random.randint(0,1) == 1: #randomize which clade the first recombination block orginates from
-							current_clade = clade1
-						else:
-							current_clade = clade2
-						loc = diff_snp_locs[p]
-						if current_clade == clade1:
-							c1_locs.append(loc)
-							query_snp_dict[loc] = clade_diff_snps[clade1][loc]
-						else:
-							c2_locs.append(loc)
-							query_snp_dict[loc] = clade_diff_snps[clade2][loc]
-
-				clade_dist_list = sorted(count_clade_dist(clade_list,diff_snp_locs,clade_diff_snps,query_snp_dict))
-				parent_clades = check_parent_clades(clade_diff_snps,diff_snp_locs,query_snp_dict) #(break_count,number_of_suporting_cladeSNPs,pair,all_supporting_locs)
-
-				if parent_clades != []:
-					min_clade_dist = clade_dist_list[0][0]
-					min_observed_breakpoints = parent_clades[0][0]
-					if min_clade_dist >= min_dist_from_nearest_clade:
-						passing_recombinant_count += 1
-						SNP_profile = ''
-						for p in range(0,len(diff_snp_locs)):
-							loc = diff_snp_locs[p]
-							SNP_profile += query_snp_dict[loc]
-
-						parents = parent_clades[0][2].split(",")
-						clade1_obs = parents[0]
-						clade2_obs = parents[1]
-						diff_locs = sorted(parent_clades[0][3])
-						prev_parent = ""
-						breaks = []
-						for i in range(0,len(diff_locs)):
-							loc = diff_locs[i]
-							base1 = clade_diff_snps[clade1_obs][loc]
-							base2 = clade_diff_snps[clade2_obs][loc]
-							qbase = query_snp_dict[loc]
-							if prev_parent == "":
-								if qbase == base1:
-									prev_parent = "one"
-								elif qbase == base2:
-									prev_parent = "two"
-								else:
-									print("ERROR")
+							query_snp_dict = {}
+							c1_locs = []
+							c2_locs = []
+							if random.randint(0,1) == 1: #randomize which clade the first recombination block orginates from
+								current_clade = clade1
 							else:
-								if qbase == base1:
-									if prev_parent == "one":
-										pass
-									elif prev_parent == "two":
-										tup = (diff_locs[i-1],diff_locs[i])
-										breaks.append(tup)
-										prev_parent = "two"
-								elif qbase == base1:
-									if prev_parent == "two":
-										pass
-									elif prev_parent == "one":
-										tup = (diff_locs[i-1],diff_locs[i])
-										breaks.append(tup)
-										prev_parent = "one"
+								current_clade = clade2
 
-						start = 0
-						for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
-							bin = str(start)+"\t"+str(stop)
-							try:
-								temp = bin_count[rep][bin]
-							except:
-								bin_count[rep][bin] = 0
-							for point in breaks:
-								if start > point[0] >= stop:
-									bin_count[rep][bin] += 1
-								elif start > point[1] >= stop:
-									bin_count[rep][bin] += 1
-								elif start > point[0] and stop < point[1]:
-									bin_count[rep][bin] += 1
-							start = stop
+							if number_of_break_points <= 100:
+								for k in range(0,len(break_points)-1): #go through recombination blocks and assign SNPs to each parental clade
+									start = break_points[k]
+									stop = break_points[k+1]
+									for p in range(0,len(diff_snp_locs)):
+										loc = diff_snp_locs[p]
+										if start <= loc < stop:
+											if current_clade == clade1:
+												c1_locs.append(loc)
+												query_snp_dict[loc] = clade_diff_snps[clade1][loc]
+											else:
+												c2_locs.append(loc)
+												query_snp_dict[loc] = clade_diff_snps[clade2][loc]
 
-						simulated_genome_summary_outfile.write(clade1_obs+"\t"+clade2_obs+"\t"+SNP_profile+"\t"+str(min_clade_dist)+"\t"+str(min_observed_breakpoints)+"\n")
+									if current_clade == clade1:
+										current_clade = clade2
+									elif current_clade == clade2:
+										current_clade = clade1
+							elif number_of_break_points > 100:
+								for p in range(0,len(diff_snp_locs)):
+									if random.randint(0,1) == 1: #randomize which clade the first recombination block orginates from
+										current_clade = clade1
+									else:
+										current_clade = clade2
+									loc = diff_snp_locs[p]
+									if current_clade == clade1:
+										c1_locs.append(loc)
+										query_snp_dict[loc] = clade_diff_snps[clade1][loc]
+									else:
+										c2_locs.append(loc)
+										query_snp_dict[loc] = clade_diff_snps[clade2][loc]
 
-		bin_count_list = []
-		for bin in bin_count[rep]:
-			bin_count_list.append(bin_count[rep][bin])
-		sim_median_count = np.median(bin_count_list)
-		for bin in real_bin_count:
-			try:
-				rel_bin_count[rep][bin] = rel_real_bin_count[bin]/(float(bin_count[rep][bin]))
-			except:
-				rel_bin_count[rep][bin] = 0.0
-		if passing_recombinant_count < number_of_genomes_to_simulate:
-			print("Ran out of clade pairs! Cannot complete analysis")
+							clade_dist_list = sorted(count_clade_dist(clade_list,diff_snp_locs,clade_diff_snps,query_snp_dict))
+							parent_clades = check_parent_clades(clade_diff_snps,diff_snp_locs,query_snp_dict) #(break_count,number_of_suporting_cladeSNPs,pair,all_supporting_locs)
+
+							if parent_clades != []:
+								min_clade_dist = clade_dist_list[0][0]
+								min_observed_breakpoints = parent_clades[0][0]
+								if min_observed_breakpoints == number_of_break_points:
+									if min_clade_dist >= min_dist_from_nearest_clade and simulated_bins[min_observed_breakpoints] < breakpoint_bins[min_observed_breakpoints]:
+										SNP_profile = ''
+										for p in range(0,len(diff_snp_locs)):
+											loc = diff_snp_locs[p]
+											SNP_profile += query_snp_dict[loc]
+										try:
+											used[SNP_profile]
+										except:
+											used[SNP_profile] = ''
+											passing_recombinant_count += 1
+											simulated_bins[min_observed_breakpoints] += 1
+
+											parents = parent_clades[0][2].split(",")
+											clade1_obs = parents[0]
+											clade2_obs = parents[1]
+											diff_locs = sorted(parent_clades[0][3])
+											prev_parent = ""
+											breaks = []
+											for i in range(0,len(diff_locs)):
+												loc = diff_locs[i]
+												base1 = clade_diff_snps[clade1_obs][loc]
+												base2 = clade_diff_snps[clade2_obs][loc]
+												qbase = query_snp_dict[loc]
+												if prev_parent == "":
+													if qbase == base1:
+														prev_parent = "one"
+													elif qbase == base2:
+														prev_parent = "two"
+													else:
+														print("ERROR")
+												else:
+													if qbase == base1:
+														if prev_parent == "one":
+															pass
+														elif prev_parent == "two":
+															tup = (diff_locs[i-1],diff_locs[i])
+															breaks.append(tup)
+															prev_parent = "two"
+													elif qbase == base1:
+														if prev_parent == "two":
+															pass
+														elif prev_parent == "one":
+															tup = (diff_locs[i-1],diff_locs[i])
+															breaks.append(tup)
+															prev_parent = "one"
+
+											start = 0
+											for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
+												bin = str(start)+"\t"+str(stop)
+												try:
+													temp = bin_count[rep][bin]
+												except:
+													bin_count[rep][bin] = 0
+												for point in breaks:
+													if start > point[0] >= stop:
+														bin_count[rep][bin] += 1
+													elif start > point[1] >= stop:
+														bin_count[rep][bin] += 1
+													elif start > point[0] and stop < point[1]:
+														bin_count[rep][bin] += 1
+												start = stop
+
+											simulated_genome_summary_outfile.write(clade1_obs+"\t"+clade2_obs+"\t"+SNP_profile+"\t"+str(min_clade_dist)+"\t"+str(min_observed_breakpoints)+"\n")
+				print(simulated_bins)
+				bin_count_list = []
+				for bin in bin_count[rep]:
+					bin_count_list.append(bin_count[rep][bin])
+				sim_median_count = np.median(bin_count_list)
+				for bin in real_bin_count:
+					try:
+						rel_bin_count[rep][bin] = rel_real_bin_count[bin]/(float(bin_count[rep][bin]))
+					except:
+						rel_bin_count[rep][bin] = 0.0
+				if simulated_bins[number_of_break_points] < breakpoint_bins[number_of_break_points]:
+					print("Ran out of clade pairs! Cannot complete analysis")
+					kill += 1
 simulated_genome_summary_outfile.close()
 
-range_outfile = open("ranges.break_points-"+str(breakpoint_naming_value)+"_"+str(number_of_replicates)+".txt","w")
+range_outfile = open("ranges.replicates-"+str(number_of_replicates)+".multi-break.txt","w")
 start = 0
 for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
 	bin = str(start)+"\t"+str(stop)
@@ -418,5 +453,26 @@ for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
 		rel_bin_count_list.append(rel_bin_count[rep][bin])
 	mean_val, lower_conf, upper_conf = mean_confidence_interval(rel_bin_count_list)
 	range_outfile.write(str(bin)+"\t"+str(mean_val)+"\t"+str(lower_conf)+"\t"+str(upper_conf)+"\n")
+	start = stop
+range_outfile.close()
+
+range_outfile = open("ranges-absolute.replicates-"+str(number_of_replicates)+".multi-break.txt","w")
+start = 0
+for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
+	bin = str(start)+"\t"+str(stop)
+	bin_count_list = []
+	for rep in range(0,number_of_replicates):
+		bin_count_list.append(bin_count[rep][bin])
+	mean_val, lower_conf, upper_conf = mean_confidence_interval(bin_count_list)
+	range_outfile.write(str(bin)+"\t"+str(mean_val)+"\t"+str(lower_conf)+"\t"+str(upper_conf)+"\n")
+	start = stop
+range_outfile.close()
+
+range_outfile = open("ranges-real.replicates-"+str(number_of_replicates)+".multi-break.txt","w")
+start = 0
+for stop in range(hist_start+bin_size,hist_stop+1,bin_size):
+	bin = str(start)+"\t"+str(stop)
+	bin_count_list = []
+	range_outfile.write(str(bin)+"\t"+str(real_bin_count[bin])+"\n")
 	start = stop
 range_outfile.close()
