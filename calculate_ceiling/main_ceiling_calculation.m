@@ -1,9 +1,10 @@
 % this is from your spreadsheet: cols are the 14 clades; rows are the weeks
 
-%USA
-sample_counts = [2786 221 6 364 18 21 807 2944 487 10313 8 63 1438 334];
 %UK
-%sample_counts = [11280 2473 2248 1466 7 29 364 6532 407 1036 153 59 16 15];
+%sample_counts = [23075 3033 3601 1995 8 41 3956 51395 804 1386 223 153 20 11];
+%USA
+sample_counts = [7132 227 87 402 25 39 1407 12192 1151 32860 18 74 1040 445];
+
 
 
 % this is from your Figure 1B. Order of cols correspond with those in
@@ -32,8 +33,8 @@ n_SNPs = 37;    % not needed in code anywhere
 
 [n_weeks, n_clades] = size(sample_counts);
 
-%recomb_sample_counts = [1]; %UK
-recomb_sample_counts = [13]; %USA
+%recomb_sample_counts = [46]; %UK
+recomb_sample_counts = [48]; %USA
 
 sample_size_by_week = sum(sample_counts, 2); % just calculates how many samples per week
 
@@ -47,7 +48,7 @@ for week_num = 1:n_weeks
     this_week_freq = clade_freqs(week_num, :);
     highest_recomb_prop(week_num) = GetHighestRecombProportion(this_week_freq, prob_observing_recomb, n_clades, sample_size_by_week(week_num), recomb_sample_counts(week_num));
 end
-writematrix(highest_recomb_prop,"recomb_prop_cdSNP-3.txt")
+writematrix(highest_recomb_prop,"recomb_prop_cdSNP-3.USA.txt")
 
 
 % redo-ing the analysis with a SNP threshold of 2 instead of 3:
@@ -56,8 +57,8 @@ writematrix(highest_recomb_prop,"recomb_prop_cdSNP-3.txt")
 SNP_threshold = 2; % to call a recombinant, it has to have at least two SNPs uniquely present from the minor parent
 n_SNPs = 37;
 
-%recomb_sample_counts = [30]; %UK
-recomb_sample_counts = [64]; %USA
+%recomb_sample_counts = [100]; %UK
+recomb_sample_counts = [595]; %USA
 
 sample_size_by_week = sum(sample_counts, 2);
 
@@ -73,5 +74,5 @@ for week_num = 1:n_weeks
     highest_recomb_prop(week_num) = GetHighestRecombProportion(this_week_freq, prob_observing_recomb, n_clades, sample_size_by_week(week_num), recomb_sample_counts(week_num));
     [week_num highest_recomb_prop(week_num)]
 end
-writematrix(highest_recomb_prop,"recomb_prop_cdSNP-2.txt")
+writematrix(highest_recomb_prop,"recomb_prop_cdSNP-2.USA.txt")
 
