@@ -17,6 +17,7 @@ Scripts should be run in the following order:
 
 `01_genome_rename.py`
 * Genomes uploaded to GISAID often have different standards for how to handle ambiguous nucleotides, as DNA vs RNA sequences, etc... so this script reformats all sequences in the input file and 
+* To process sequences downloaded on GISAID from the "Download" tab, download both the fasta file and metadata and place them both in the same directory. If processing sequences downloaded from the "Search" tab on GISAID, do not place the metadata.tsv file in the same parent directory as the sequences you wish to screen.
 
 `02_trim_genomes.py`
 * This script takes the blast output file and uses that information to consistently cut each genome and generate a set of unique sequences to align to the reference alignment. It finishes by submitting a MAFFT alignment job.
