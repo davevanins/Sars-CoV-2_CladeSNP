@@ -24,7 +24,7 @@ exclude_locs_for_dist = []#if you wish to include positions 28881-3 as one site,
 min_input_length = 29500
 max_input_length = 31000
 
-min_output_length = 29610
+min_output_length = 29400
 max_output_length = 29660
 
 max_N_prop = 0.01
