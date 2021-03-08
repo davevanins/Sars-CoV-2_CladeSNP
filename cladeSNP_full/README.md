@@ -25,6 +25,7 @@ Scripts should be run in the following order:
 `03_alignment_parse_cladeSNPs.py`
 * This script generates the final output for manually identifying putative recombinant genomes. After searching each genome for the clade-defining SNPs and comparing them to the SNP profiles of each clade.
 
+We have also created a version of the scripts that performs the genome alignment and phylogenetic placement analysis in a parallel format by splitting the sequence files into smaller sets and submitting jobs separately. Because pplacer runs slowly and has a particularly large resource demand and it is generall impractical to run locally, it is not implemented in the non-parallel version of the scripts.
 
 # Interpreting the output
 
