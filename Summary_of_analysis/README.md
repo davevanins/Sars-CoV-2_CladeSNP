@@ -10,12 +10,8 @@
 `unique_genomes.min_cdSNP_distance.txt`
 * This file contains the cdSNP profiles and the nearest clade and distance to that clade of all unique genomes included in the analysis.
 
-`gisaid_hcov19.filtered.names`
-* This file is the key to link unique genomes to the non-redundant list of genomes. Format is based off of the mothur .name file (https://mothur.org/wiki/name_file/). 
-
 `recombinants.min_diffSNP_distance.txt`
-* This file lists all of the putatively recombinant genomes identified by our analysis, along with the clade-defining SNP profile of that genome, and how that profile is similar and different relative to all 14 clades. The file also has a summary of the clade-defining SNP profiles of the 14 clades.
+* This file lists all of the putatively recombinant genomes identified by our analysis, along with the clade-defining SNP profile of that genome, and how that profile is similar and different relative to all 14 clades. The file also has a summary of the clade-defining SNP profiles of the 14 clades. This file also summarizes detected amino acid substitutions in each recombinant sequence.
 
 `recombinant_parent_clade_info.txt`
 * This file lists all of the possible parent clade pairs for the putatively recombinant genomes identified by our analysis, along with the distance to predicted parent clades, the number of SNPs supporting recombination, and the minimum number of break points required to explain that genotype as recombination between the two parent clades.
-
