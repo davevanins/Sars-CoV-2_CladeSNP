@@ -3,6 +3,10 @@ import sys
 ###################################   USER DEFINED VARIABLES   ###################################
 args = sys.argv
 input_name = args[1]
+try:
+	metadata_filename = args[2]
+except:
+	pass
 
 project_dir = "./"
 output_prefix = input_name.split(".f")[0]
@@ -14,12 +18,11 @@ trim_outfile_name = project_dir+output_prefix+".trim.fa"
 outfile_name = output_prefix+".fa"
 
 blast_dir = project_dir + "blast/"
-if not os.path.exists(blast_dir):
-	os.makedirs(blast_dir)
+# if not os.path.exists(blast_dir):
+# 	os.makedirs(blast_dir)
 
 clade_diff_snp_loc_filename = project_dir+"clade_associated_SNPs.nucl.txt"
 exclude_locs_for_dist = []#if you wish to include positions 28881-3 as one site, change this list to: [28764,28765]
-
 
 min_input_length = 29500
 max_input_length = 31000
@@ -107,23 +110,70 @@ def check_parent_clades(clade_profiles,SNP_locations,input_SNPs):
 	return potential_parents
 
 ############################################   MAIN   #############################################
+accessions_to_exclude = {}
+try:
+	exclude_infile = open(project_dir+"accessions_to_exclude.txt","r")
+	for line in exclude_infile:
+		line = line.strip()
+		# accessions_to_exclude.append(line)
+		accessions_to_exclude[line] = ''
+	exclude_infile.close()
+except:
+	pass
+accessions_to_include = []
+print("len(accessions_to_exclude): "+str(len(accessions_to_exclude)))
+
+accession_name_dict = {}
+metadata_dict = {}
+metadata_file_found = False
+try:
+	firstline = True
+	metadatatsv = open(project_dir+metadata_filename,"r")
+	metadata_file_found = True
+	for line in metadatatsv:
+		if firstline == True:
+			firstline = False
+		else:
+			line = line.strip().split("\t")
+			seqname = line[0]
+			accession = line[2]
+			meta_info = line[0]+"\t"+line[4]+"\t"+line[5]+"\t"+line[6]+"\t"+line[7]+"\t"+line[8]+"\t"+line[9]+"\t"+line[10]+"\t"+line[11]+"\t"+line[14]+"\t"+line[15]+"\t"+line[16]+"\t"+line[17]+"\t"+line[18]+"\t"+line[19]+"\t"+line[21]+"\t"+line[26]
+			accession_name_dict[seqname] = accession
+			metadata_dict[accession] = meta_info
+	metadatatsv.close()
+except:
+	pass
+
+
+print("Starting initial processing of sequences")
 ##Screen genomes to replace ambiguous nucleotides with 'N'
 ambiguous_nucleotides = ['B','b','D','d','H','h','K','k','M','m','R','r','S','s','V','v','W','w','Y','y']
 genomes_infile = open(project_dir+input_name,"r")
 skip = False
 seq_dict = {}
-used_list = []
+used_list = {}
 for line in genomes_infile:
 	line = line.strip()
 	if len(line) >0:
 		if line[0] == ">":
-			accession = line.split("|")[1]
-			if accession in used_list:
-				skip = True
-				print("Error: duplicate sequence header found, excluding from analysis: "+accession)
+			if len(line.replace("|","")) != len(line):
+				accession = line.split("|")[1]
+			elif metadata_file_found == True:
+				accession = accession_name_dict[line[1:len(line)]]
 			else:
-				skip = False
-				used_list.append(accession)
+				accession = line[1:len(line)]
+			try:# accession in used_list or accession in accessions_to_exclude:
+				x = accessions_to_exclude[accession]
+				skip = True
+			except:
+				try:
+					x = used_list[accession]
+					skip = True
+					# print("Error: duplicate sequence header found, excluding from analysis: "+accession)
+				except:
+					skip = False
+					used_list[accession] = ''
+				# else:
 		elif skip == False:
 			line = nucleotide_character_edit(line,ambiguous_nucleotides)
 			try:
@@ -178,13 +228,16 @@ for line in blast_infile:
 			flank_position_dict[accession] = {}
 			flank_position_dict[accession][side] = cut_site
 blast_infile.close()
+print("flank_position_dict "+str(len(flank_position_dict)))
 
 accession_list = []
 quality_outfile = open(project_dir+output_prefix+".genome_info.txt","w")
 genomes_outfile = open(trim_outfile_name,"w")
 trim_seq_dict = {}
+debug = open("trim_debug.txt","w")
 for accession in temp_seq_dict:
 	seq_in = temp_seq_dict[accession]
+	debug.write(accession+"\t"+str(len(seq_in)))
 	try:
 		front_cut_site = max(flank_position_dict[accession]["front"]-1,0)
 		back_cut_site = flank_position_dict[accession]["back"]
@@ -194,6 +247,7 @@ for accession in temp_seq_dict:
 		len_after = len(seq_out.replace("N",""))
 		Ncount = len_before-len_after
 		N_prop = float(Ncount)/float(len_before)
+		debug.write("\t"+str(len_before)+"\t"+str(Ncount)+"\t"+str(N_prop))
 		# print(len(seq_out))
 		if len(seq_out) >= min_output_length and len(seq_out) <= max_output_length:
 			quality_outfile.write(accession+"\t"+str(len_before)+"\t"+str(Ncount)+"\n")
@@ -202,8 +256,10 @@ for accession in temp_seq_dict:
 			genomes_outfile.write(">"+accession+"\n"+seq_out+"\n")
 	except:
 		pass
+	debug.write("\n")
 quality_outfile.close()
 genomes_outfile.close()
+debug.close()
 print("Including "+str(len(accession_list))+" genomes that pass length and quality thresholds")
 
 ##store 14 clade cdSNP profiles
@@ -257,9 +313,12 @@ for loc in diff_snp_locs:
 		sseq = line[11]
 		cdSNP_loc = (qlen/2)-qstart
 		if cdSNP_loc >0:
-			if cdSNP_loc <= qend:
-				cdSNP = sseq[cdSNP_loc]
-			else:
+			try:
+				if cdSNP_loc <= qend:
+					cdSNP = sseq[cdSNP_loc]
+				else:
+					cdSNP = "N"
+			except:
 				cdSNP = "N"
 			query_list.append(accession)
 			try:
@@ -269,7 +328,7 @@ for loc in diff_snp_locs:
 					if evalue < prev_evalue or prev_cdSNP == "N":
 						query_snp_dict[accession][loc] = cdSNP
 						eval_dict[accession][loc] = evalue
-						print(accession+"\t"+str(loc)+"\t"+str(evalue)+"\t"+str(prev_evalue)+"\t"+cdSNP+"\t"+prev_cdSNP)
+						#print(accession+"\t"+str(loc)+"\t"+str(evalue)+"\t"+str(prev_evalue)+"\t"+cdSNP+"\t"+prev_cdSNP)
 				except:
 					query_snp_dict[accession][loc] = cdSNP
 					eval_dict[accession][loc] = evalue
@@ -278,6 +337,8 @@ for loc in diff_snp_locs:
 				query_snp_dict[accession][loc] = cdSNP
 				eval_dict[accession] = {}
 				eval_dict[accession][loc] = evalue
+		else:
+			cdSNP = "-"
 blast_infile.close()
 query_list = sorted(list(set(query_list)))
 print(str(len(query_list))+" query sequences to screen for recombinants")
@@ -297,12 +358,12 @@ for clade in clade_list:
 		minDist_outfile.write(s_nt)
 	minDist_outfile.write("\n")
 minDist_outfile.write("\n")
-minDist_outfile.write("\t\t\t\t")
+minDist_outfile.write("accession\tdist_to_nearest_clade\tnearest_clade\tmin_recombination_breakpoints\tcdSNP_profile")
 for k in range(0,len(clade_list)):
 		clade = clade_list[k]
 		minDist_outfile.write("\t"+clade)
+minDist_outfile.write("\tstrain\tdate\tregion\tcountry\tdivision\tlocation\tregion_exposure\tcountry_exposure\tdivision_exposure\thost\tage\tsex\tNextstrain_clade\tpango_lineage\tGISAID_clade\tsubmitting_lab\tdate_submitted")
 minDist_outfile.write("\n")
-
 
 
 dist_dict = {}
@@ -347,7 +408,6 @@ for i in range(0,len(query_list)):
 	minDist_all_outfile.write(accession+"\t"+str(min_dist_val)+"\t"+str(min_dist_clade)+"\t"+SNP_profile+"\n")
 
 	if (min_dist_val >= 2 and N_found == False) or accession in accessions_to_include:
-		flagged_accessions.append(accession)
 
 		parent_clades = sorted(check_parent_clades(clade_diff_snps,diff_snp_locs,query_snp_dict[accession]))
 		min_break_count = 99
@@ -383,9 +443,13 @@ for i in range(0,len(query_list)):
 						gaped_string += '-'
 				minDist_outfile_string += '\t'+gaped_string
 			minDist_outfile_string += '\n'
-			minDist_outfile.write(accession+"\t"+minDist_outfile_string)
-
-		elif parent_clades == []:
+			try:
+				meta_info = metadata_dict[accession]
+			except:
+				meta_info = ""
+			minDist_outfile.write(accession +"\t"+ minDist_outfile_string +"\t"+ meta_info +"\n")
+			flagged_accessions.append(accession)
+		else:
 			min_break_count = 'nan'
 		
 	elif min_dist_val == 0 and N_found == False:
@@ -395,7 +459,11 @@ minDist_all_outfile.close()
 zeroDist_outfile.close()
 
 ref_strains = []
-outfile = open(project_dir+output_prefix+".seqs_to_characterize.fasta","w")
-for accession in flagged_accessions:
-	outfile.write(">"+accession+"\n"+trim_seq_dict[accession]+"\n")
-outfile.close()
+if len(flagged_accessions) > 0:
+	outfile = open(project_dir+output_prefix+".seqs_to_characterize.fasta","w")
+	for accession in flagged_accessions:
+		outfile.write(">"+accession+"\n"+trim_seq_dict[accession]+"\n")
+	outfile.close()
+	print("Found "+str(len(flagged_accessions))+" putatively recombinant sequences ("+str(round(float(len(flagged_accessions))/float(len(flagged_accessions))*100,0))+"%)")
+else:
+	print("Found 0  putatively recombinant sequences")
